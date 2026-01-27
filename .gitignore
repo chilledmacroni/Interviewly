@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+
+# Build outputs
+dist/
+build/
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# Environment files
+.env
+.env.local
+appsettings.Development.json
+appsettings.Production.json
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Package files
+*.nupkg
+*.snupkg
+package-lock.json
+yarn.lock
+
+# Database
+*.db
+*.sqlite
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.cache
