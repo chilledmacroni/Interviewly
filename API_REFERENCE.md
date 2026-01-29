@@ -14,7 +14,7 @@
   "techStack": "React, TypeScript, Node.js",
   "difficulty": "medium",
   "resumeText": "Optional: Your resume text here...",
-  "jdUrl": "Optional: https://example.com/job-posting"
+  "jdText": "Optional: Job description text (if you want to provide it)"}
 }
 ```
 

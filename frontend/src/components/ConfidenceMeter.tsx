@@ -2,12 +2,14 @@ import React from 'react';
 
 interface ConfidenceMeterProps {
     score: number; // 0-10
+    confidence?: number; // 0-10
 }
 
-export const ConfidenceMeter: React.FC<ConfidenceMeterProps> = ({ score }) => {
+export const ConfidenceMeter: React.FC<ConfidenceMeterProps> = ({ score, confidence }) => {
     // Calculate rotation for the needle/fill
     // 0 = -90deg, 10 = 90deg => range 180deg
     const percentage = (score / 10) * 100;
+    const confidencePercentage = confidence ? (confidence / 10) * 100 : percentage;
 
     let colorClass = 'text-red-500';
     let label = 'Needs Work';
@@ -75,7 +77,21 @@ export const ConfidenceMeter: React.FC<ConfidenceMeterProps> = ({ score }) => {
                 <div className={`text-sm font-medium ${colorClass} mt-2`}>
                     {label}
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
+                {confidence !== undefined && (
+                    <div className="mt-3 w-full">
+                        <div className="flex justify-between text-xs text-slate-400 mb-1">
+                            <span>Confidence</span>
+                            <span>{confidence.toFixed(1)}/10</span>
+                        </div>
+                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full ${colorClass} bg-current transition-all duration-500`}
+                                style={{ width: `${confidencePercentage}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
+                <div className="text-xs text-slate-500 mt-2">
                     Based on response quality and clarity
                 </div>
             </div>

@@ -2,9 +2,10 @@ import React from 'react';
 
 interface ActionableTipsProps {
     tips?: string[];
+    insights?: string[];
 }
 
-export const ActionableTips: React.FC<ActionableTipsProps> = ({ tips = [] }) => {
+export const ActionableTips: React.FC<ActionableTipsProps> = ({ tips = [], insights = [] }) => {
     // Default empty state tips
     const displayTips = tips.length > 0 ? tips : [
         "Start typing to receive real-time feedback",
@@ -29,6 +30,26 @@ export const ActionableTips: React.FC<ActionableTipsProps> = ({ tips = [] }) => 
                     </div>
                 ))}
             </div>
+
+            {insights.length > 0 && (
+                <>
+                    <div className="flex items-center gap-2 mb-4 mt-6">
+                        <span className="text-blue-400">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </span>
+                        <h3 className="text-white font-semibold text-sm">Key Insights</h3>
+                    </div>
+
+                    <div className="space-y-3">
+                        {insights.map((insight, idx) => (
+                            <div key={idx} className="bg-blue-950/20 rounded-lg p-3 text-sm text-blue-200 flex items-start gap-3 border border-blue-800/30">
+                                <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                {insight}
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
         </div>
     );
 };

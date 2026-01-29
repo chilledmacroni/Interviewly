@@ -28,6 +28,10 @@ builder.Services.Configure<JwtSettings>(
 
 // Configure Authentication
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();
+if (jwtSettings == null) 
+{
+    throw new InvalidOperationException("JwtSettings are not configured properly in appsettings.json");
+}
 var key = System.Text.Encoding.ASCII.GetBytes(jwtSettings.Secret);
 
 builder.Services.AddAuthentication(options =>
@@ -57,16 +61,12 @@ builder.Services.AddHttpClient("GeminiClient", client =>
     client.Timeout = TimeSpan.FromSeconds(60);
 });
 
-// Register HttpClient for ScraperService
-builder.Services.AddHttpClient<IScraperService, ScraperService>(client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
-
 builder.Services.AddHttpClient<IExtractionManager, ExtractionManager>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(120); // Longer timeout for extraction
 });
+
+// Note: URL scraping removed (no Crawl4AI service). Resume extraction still uses extraction manager calling the local resume extraction endpoint.
 
 // Register HttpClientFactory for services
 builder.Services.AddHttpClient();
@@ -75,6 +75,19 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<IInterviewService, InterviewService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+// Voice analysis service
+builder.Services.AddScoped<VoiceAnalysisService>();
+// Text-to-speech service
+builder.Services.AddScoped<ITTSService, TTSService>();
+// Embedding service for document chunking and semantic retrieval
+builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
+// Interview history service for MongoDB persistence
+builder.Services.AddSingleton(sp => 
+{
+    var appSettings = new AppSettings();
+    builder.Configuration.Bind(appSettings);
+    return new InterviewHistoryService(appSettings);
+});
 
 // Configure CORS for React frontend
 builder.Services.AddCors(options =>

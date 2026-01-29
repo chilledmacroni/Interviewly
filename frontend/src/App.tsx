@@ -8,6 +8,7 @@ import { Dashboard } from './components/Dashboard';
 import { SessionDetail } from './components/SessionDetail';
 import InterviewSetup from './components/InterviewSetup';
 import { InterviewSession } from './components/InterviewSession';
+import { Testing } from './components/Testing';
 import type { InterviewConfig } from './types';
 
 const PrivateRoute = ({ children }: { children: React.JSX.Element }) => {
@@ -43,6 +44,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/testing" element={<Testing />} />
           <Route path="/dashboard" element={
             <PrivateRoute>
               <Dashboard />

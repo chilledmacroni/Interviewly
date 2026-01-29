@@ -14,7 +14,6 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
     const [techStack, setTechStack] = useState('');
     const [difficulty, setDifficulty] = useState<InterviewConfig['difficulty']>('medium');
     const [resumeText, setResumeText] = useState('');
-    const [jdUrl, setJdUrl] = useState('');
     const [isDragging, setIsDragging] = useState(false);
     const [isUploadingResume, setIsUploadingResume] = useState(false);
     const [resumeFileName, setResumeFileName] = useState<string>('');
@@ -23,9 +22,9 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validate that user provided either resume or JD URL
-        if (!resumeText && !jdUrl) {
-            alert('Please provide either a resume or a company URL');
+        // Validate that user provided a resume
+        if (!resumeText) {
+            alert('Please upload or paste your resume');
             return;
         }
 
@@ -34,8 +33,7 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
             techStack: techStack || 'General Technical Interview',
             difficulty,
             resumeText,
-            jdUrl,
-            inputType: resumeText ? 'resume' : 'jd'
+            inputType: 'resume'
         });
     };
 
@@ -64,49 +62,33 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
     };
 
     const readResumeFile = async (file: File) => {
-        // Validate file type
-        const validTypes = ['.pdf', '.txt', '.doc', '.docx'];
-        const isValidType = validTypes.some(type => file.name.toLowerCase().endsWith(type));
+        // Validate file type - only PDF and DOCX
+        const isValidType = file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.docx');
         
         if (!isValidType) {
-            alert('Please upload a PDF, TXT, DOC, or DOCX file');
+            alert('Please upload a PDF or DOCX file');
             return;
         }
 
-        // For PDF files, upload to backend for proper parsing
-        if (file.name.toLowerCase().endsWith('.pdf')) {
-            setIsUploadingResume(true);
-            try {
-                const result = await uploadResume(file);
-                
-                if (!result.success) {
-                    alert(`Failed to extract resume: ${result.error || 'Unknown error'}`);
-                    setResumeFileName('');
-                    return;
-                }
-                
-                setResumeText(result.text);
-                setResumeFileName(file.name);
-            } catch (error) {
-                console.error('Resume upload error:', error);
-                alert(`Failed to upload resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Upload to backend for extraction
+        setIsUploadingResume(true);
+        try {
+            const result = await uploadResume(file);
+            
+            if (!result.success) {
+                alert(`Failed to extract resume: ${result.error || 'Unknown error'}`);
                 setResumeFileName('');
-            } finally {
-                setIsUploadingResume(false);
+                return;
             }
-        } else {
-            // For text-based files, read as text directly
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target?.result as string;
-                setResumeText(text);
-                setResumeFileName(file.name);
-            };
-            reader.onerror = () => {
-                alert('Failed to read file');
-                setResumeFileName('');
-            };
-            reader.readAsText(file);
+            
+            setResumeText(result.text);
+            setResumeFileName(file.name);
+        } catch (error) {
+            console.error('Resume upload error:', error);
+            alert(`Failed to upload resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            setResumeFileName('');
+        } finally {
+            setIsUploadingResume(false);
         }
     };
 
@@ -126,12 +108,14 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
                 {user ? (
                     <div className="flex items-center gap-6">
                         <Link to="/dashboard" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Dashboard</Link>
+                        <Link to="/testing" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Voice Test</Link>
                         <div className="h-4 w-px bg-slate-800"></div>
                         <span className="text-slate-400 text-sm">Hi, {user.firstName}</span>
                         <button onClick={logout} className="text-rose-400 hover:text-rose-300 text-sm font-medium">Logout</button>
                     </div>
                 ) : (
                     <div className="flex items-center gap-4">
+                        <Link to="/testing" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Voice Test</Link>
                         <Link to="/login" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Sign In</Link>
                         <Link to="/register" className="bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Start Free</Link>
                     </div>
@@ -153,28 +137,14 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
                 </h1>
 
                 <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed">
-                    Drop your resume, paste the company URL, and let our AI coach
+                    Drop your resume and let our AI coach
                     prepare you with personalized questions and real-time feedback.
                 </p>
 
                 {/* Main Action Card */}
                 <form onSubmit={handleSubmit} className="stealth-card p-6 md:p-8 max-w-2xl mx-auto text-left relative z-10">
 
-                    {/* URL Input */}
-                    <div className="mb-6 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <svg className="h-5 w-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                            </svg>
-                        </div>
-                        <input
-                            type="url"
-                            className="input-stealth pl-12"
-                            placeholder="Enter company URL (e.g., stripe.com/careers/...)"
-                            value={jdUrl}
-                            onChange={(e) => setJdUrl(e.target.value)}
-                        />
-                    </div>
+
 
                     {/* Resume Upload Area */}
                     <div
@@ -194,7 +164,7 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
                             type="file"
                             id="resume-upload"
                             className="hidden"
-                            accept=".txt,.pdf,.doc,.docx"
+                            accept=".pdf,.docx"
                             onChange={handleFileChange}
                         />
 
@@ -231,7 +201,7 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
                                     Drop your resume or click to upload
                                 </p>
                                 <p className="text-sm text-slate-500 mt-2">
-                                    PDF, TXT, DOC or DOCX (max 10MB)
+                                    PDF or DOCX (max 10MB)
                                 </p>
                             </div>
                         )}
@@ -269,7 +239,7 @@ const InterviewSetup: React.FC<InterviewSetupProps> = ({ onStart, isLoading }) =
                     {/* Submit Button */}
                     <button
                         type="submit"
-                        disabled={isLoading || isUploadingResume || (!resumeText && !jdUrl)}
+                        disabled={isLoading || isUploadingResume || (!resumeText)}
                         className="btn-neon w-full flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isLoading ? (

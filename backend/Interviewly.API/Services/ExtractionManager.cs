@@ -3,13 +3,17 @@ using Interviewly.API.Configuration;
 using Interviewly.API.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Http;
+using System.IO;
+using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Canvas.Parser;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace Interviewly.API.Services;
 
 public interface IExtractionManager
 {
     Task<ResumeExtractionResult> ExtractResumeAsync(IFormFile file);
-    Task<JdExtractionResult> ExtractJdAsync(string url);
 }
 
 public class ExtractionManager : IExtractionManager
@@ -35,43 +39,47 @@ public class ExtractionManager : IExtractionManager
             Console.WriteLine($"[EXTRACTION] Starting resume extraction for: {file.FileName}");
             _logger.LogInformation("Extracting resume: {FileName}", file.FileName);
 
-            using var content = new MultipartFormDataContent();
-            using var fileStream = file.OpenReadStream();
-            using var streamContent = new StreamContent(fileStream);
-            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
-            
-            content.Add(streamContent, "file", file.FileName);
-
-            Console.WriteLine($"[EXTRACTION] Sending {file.Length} bytes to Python service at {_settings.BaseUrl}/extract/resume");
-            var response = await _httpClient.PostAsync($"{_settings.BaseUrl}/extract/resume", content);
-            
-            if (!response.IsSuccessStatusCode)
+            var fileName = file.FileName.ToLower();
+            byte[] content;
+            using (var ms = new MemoryStream())
             {
-                var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[EXTRACTION] ❌ Resume extraction failed: {response.StatusCode} - {error}");
-                _logger.LogError("Resume extraction failed: {StatusCode} - {Error}", response.StatusCode, error);
-                return new ResumeExtractionResult { Success = false, Error = $"Service error: {response.StatusCode}" };
+                await file.CopyToAsync(ms);
+                content = ms.ToArray();
             }
 
-            var result = await response.Content.ReadFromJsonAsync<ResumeExtractionResult>(
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            
-            if (result == null)
+            var extractedText = "";
+
+            if (fileName.EndsWith(".pdf"))
             {
-                Console.WriteLine("[EXTRACTION] ❌ Empty response from Python service");
-                return new ResumeExtractionResult { Success = false, Error = "Empty response" };
+                extractedText = ExtractTextFromPdf(content);
             }
-            
-            if (!result.Success)
+            else if (fileName.EndsWith(".docx"))
             {
-                Console.WriteLine($"[EXTRACTION] ❌ Python service reported failure: {result.Error}");
-                return result;
+                extractedText = ExtractTextFromDocx(content);
             }
+            else
+            {
+                return new ResumeExtractionResult { Success = false, Error = "Unsupported file format. Only PDF and DOCX are supported." };
+            }
+
+            if (string.IsNullOrWhiteSpace(extractedText) || extractedText.Length < 20)
+            {
+                Console.WriteLine("[EXTRACTION] ❌ Extracted text is empty or too short");
+                return new ResumeExtractionResult { Success = false, Error = "File appears to be empty or contains no extractable text." };
+            }
+
+            Console.WriteLine($"[EXTRACTION] ✓ Resume extracted successfully: {extractedText.Length} characters");
             
-            Console.WriteLine($"[EXTRACTION] ✓ Resume extracted successfully: {result.Text?.Length ?? 0} characters");
-            Console.WriteLine($"[EXTRACTION DEBUG] First 200 chars: {result.Text?.Substring(0, Math.Min(200, result.Text?.Length ?? 0))}");
-                
-            return result;
+            // Basic heuristic to find skills
+            var skills = ExtractSkills(extractedText);
+            
+            return new ResumeExtractionResult
+            {
+                Text = extractedText,
+                Success = true,
+                Skills = skills,
+                Projects = new List<string>()
+            };
         }
         catch (Exception ex)
         {
@@ -81,49 +89,99 @@ public class ExtractionManager : IExtractionManager
         }
     }
 
-    public async Task<JdExtractionResult> ExtractJdAsync(string url)
+    private string ExtractTextFromPdf(byte[] pdfContent)
     {
         try
         {
-            Console.WriteLine($"[EXTRACTION] Starting JD extraction from URL: {url}");
-            _logger.LogInformation("Extracting JD from URL: {Url}", url);
+            // Use iTextSharp to extract PDF text
+            using var reader = new iText.Kernel.Pdf.PdfReader(new MemoryStream(pdfContent));
+            using var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader);
+            var text = new System.Text.StringBuilder();
 
-            var request = new { Url = url };
-            var response = await _httpClient.PostAsJsonAsync($"{_settings.BaseUrl}/scrape", request);
-
-            if (!response.IsSuccessStatusCode)
+            for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
             {
-                 var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[EXTRACTION] ❌ JD extraction failed: {response.StatusCode} - {error}");
-                _logger.LogError("JD extraction failed: {StatusCode} - {Error}", response.StatusCode, error);
-                return new JdExtractionResult { Success = false, Error = $"Service error: {response.StatusCode}" };
+                var page = pdfDoc.GetPage(i);
+                text.Append(iText.Kernel.Pdf.Canvas.Parser.PdfTextExtractor.GetTextFromPage(page));
+                text.Append("\n");
             }
 
-            var result = await response.Content.ReadFromJsonAsync<JdExtractionResult>(
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-            if (result == null)
-            {
-                Console.WriteLine("[EXTRACTION] ❌ Empty response from Python service");
-                return new JdExtractionResult { Success = false, Error = "Empty response" };
-            }
-            
-            if (!result.Success)
-            {
-                Console.WriteLine($"[EXTRACTION] ❌ Python service reported failure: {result.Error}");
-                return result;
-            }
-            
-            Console.WriteLine($"[EXTRACTION] ✓ JD extracted successfully: {result.Content?.Length ?? 0} characters");
-            Console.WriteLine($"[EXTRACTION DEBUG] First 200 chars: {result.Content?.Substring(0, Math.Min(200, result.Content?.Length ?? 0))}");
-
-            return result;
+            return text.ToString();
         }
         catch (Exception ex)
         {
-             Console.WriteLine($"[EXTRACTION] ❌ Exception: {ex.Message}");
-             _logger.LogError(ex, "Error extracting JD");
-            return new JdExtractionResult { Success = false, Error = ex.Message };
+            _logger.LogError(ex, "PDF extraction failed");
+            return "";
         }
+    }
+
+    private string ExtractTextFromDocx(byte[] docxContent)
+    {
+        try
+        {
+            using var ms = new MemoryStream(docxContent);
+            using var doc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(ms, false);
+            var body = doc.MainDocumentPart?.Document.Body;
+            
+            if (body == null) return "";
+
+            var text = new System.Text.StringBuilder();
+            foreach (var para in body.Descendants<DocumentFormat.OpenXml.Wordprocessing.Paragraph>())
+            {
+                var paraText = string.Concat(para.Descendants<DocumentFormat.OpenXml.Wordprocessing.Text>().Select(t => t.Text));
+                if (!string.IsNullOrWhiteSpace(paraText))
+                {
+                    text.AppendLine(paraText);
+                }
+            }
+
+            return text.ToString();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DOCX extraction failed");
+            return "";
+        }
+    }
+
+    private List<string> ExtractSkills(string resumeText)
+    {
+        var skills = new List<string>();
+        var lowerText = resumeText.ToLower();
+        
+        // Look for "Skills" section
+        var lines = resumeText.Split(new[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+        var inSkillsSection = false;
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (trimmed.ToLower().Contains("skills"))
+            {
+                inSkillsSection = true;
+                continue;
+            }
+
+            if (inSkillsSection && !string.IsNullOrWhiteSpace(trimmed))
+            {
+                if (trimmed.ToLower().StartsWith("experience") || trimmed.ToLower().StartsWith("education"))
+                {
+                    inSkillsSection = false;
+                    break;
+                }
+
+                // Split by comma or semicolon
+                var skillSet = trimmed.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var skill in skillSet)
+                {
+                    var cleanSkill = skill.Trim().TrimStart('-', '*', '•').Trim();
+                    if (!string.IsNullOrWhiteSpace(cleanSkill) && cleanSkill.Length > 2)
+                    {
+                        skills.Add(cleanSkill);
+                    }
+                }
+            }
+        }
+
+        return skills.Distinct().ToList();
     }
 }

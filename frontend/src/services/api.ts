@@ -141,11 +141,12 @@ export const uploadResume = async (file: File): Promise<{ text: string; success:
     const formData = new FormData();
     formData.append('file', file);
 
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit | undefined = token ? { Authorization: `Bearer ${token}` } : undefined;
+
     const response = await fetch(`${API_BASE_URL}/extraction/resume`, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`.replace('Bearer ', '') || undefined,
-        },
+        headers,
         body: formData,
     });
 
@@ -157,3 +158,111 @@ export const uploadResume = async (file: File): Promise<{ text: string; success:
     return response.json();
 };
 
+// Resume diagnosis API endpoint
+export const diagnoseResume = async (resumeText: string): Promise<any> => {
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+    };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/extraction/diagnose`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ resumeText }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+};
+
+// Save interview progress (incomplete interview)
+export const saveInterviewProgress = async (sessionId: string): Promise<{ 
+    id: string; 
+    message: string;
+    result: any; // InterviewResult with all calculated metrics
+}> => {
+    const response = await fetch(`${API_BASE_URL}/interview/save-progress`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ sessionId }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+};
+
+// Interview Results API
+export const saveInterviewResult = async (summary: any): Promise<{ id: string; message: string }> => {
+    const response = await fetch(`${API_BASE_URL}/interview/save-result`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(summary),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+};
+
+export const getInterviewResults = async (): Promise<any[]> => {
+    const response = await fetch(`${API_BASE_URL}/interview/results`, {
+        method: 'GET',
+        headers: getHeaders(),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+};
+
+export const getInterviewStats = async (): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/interview/stats`, {
+        method: 'GET',
+        headers: getHeaders(),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+};
+
+// Text-to-Speech API (using pyttsx3 system voice)
+export const speakText = async (text: string): Promise<{
+    success: boolean;
+    audioBase64?: string;
+    error?: string;
+    fileSizeBytes?: number;
+}> => {
+    const response = await fetch(`${API_BASE_URL}/tts/speak`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+};

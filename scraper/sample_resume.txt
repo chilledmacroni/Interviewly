@@ -1,0 +1,16 @@
+John Doe
+Software Engineer
+
+Summary:
+Experienced backend engineer with 5+ years building distributed services in .NET and Python. Skilled in system design, microservices, and databases.
+
+Experience:
+- Senior Software Engineer, Acme Corp (2020-2024)
+  - Built scalable APIs, improved latency by 40% via caching
+  - Led migration to cloud-native architecture (Kubernetes)
+
+Skills:
+Python, C#, .NET, MongoDB, Docker, Kubernetes, REST, CI/CD
+
+Education:
+B.S. Computer Science, University

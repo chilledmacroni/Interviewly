@@ -9,6 +9,8 @@ public class GeminiSettings
     
     public string ApiKey { get; set; } = string.Empty;
     public string ModelName { get; set; } = "gemini-1.5-pro";
+    // Optional: model to use for embeddings (if different)
+    public string EmbeddingModelName { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -30,4 +32,15 @@ public class Crawl4AISettings
     public const string SectionName = "Crawl4AISettings";
     
     public string BaseUrl { get; set; } = "http://localhost:8000";
+}
+
+/// <summary>
+/// Root application settings aggregator
+/// </summary>
+public class AppSettings
+{
+    public GeminiSettings GeminiSettings { get; set; } = new();
+    public MongoDbSettings MongoDbSettings { get; set; } = new();
+    public Crawl4AISettings Crawl4AISettings { get; set; } = new();
+    public JwtSettings JwtSettings { get; set; } = new();
 }
