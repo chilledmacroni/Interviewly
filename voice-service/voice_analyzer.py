@@ -117,6 +117,8 @@ class VoiceAnalyzer:
             
             # 3. SENTIMENT ANALYSIS (Confidence indicators)
             sentiment_scores = self.sentiment_analyzer.polarity_scores(transcript)
+            print(f"[SENTIMENT] Transcript for analysis: '{transcript}'", file=sys.stderr)
+            print(f"[SENTIMENT] Scores: pos={sentiment_scores['pos']}, neu={sentiment_scores['neu']}, neg={sentiment_scores['neg']}, compound={sentiment_scores['compound']}", file=sys.stderr)
             
             # 4. SPEECH PACE ANALYSIS
             pace_analysis = self._analyze_speech_pace(all_segments, wav_path)
@@ -138,6 +140,7 @@ class VoiceAnalyzer:
             
             print(f"Transcript: {transcript[:100]}...", file=sys.stderr)
             print(f"Confidence Score: {confidence_score}", file=sys.stderr)
+            print(f"[ANALYSIS-RESULT] Voice Quality: pitch={voice_quality['pitch_variation']}, energy={voice_quality['energy_level']}, clarity={voice_quality['clarity_score']}", file=sys.stderr)
             
             return {
                 "success": True,
@@ -241,7 +244,9 @@ class VoiceAnalyzer:
     def _analyze_voice_quality(self, wav_path):
         """Analyze voice characteristics using librosa"""
         try:
+            print(f"[VOICE-QUALITY] Loading audio file: {wav_path}", file=sys.stderr)
             y, sr = librosa.load(wav_path, sr=None)
+            print(f"[VOICE-QUALITY] Audio loaded successfully. Sample rate: {sr}", file=sys.stderr)
             
             # Pitch variation (confidence indicator)
             pitches, magnitudes = librosa.piptrack(y=y, sr=sr)
@@ -268,7 +273,9 @@ class VoiceAnalyzer:
                 'clarity_score': round(clarity_score / 1000, 2)  # Normalize
             }
         except Exception as e:
+            import traceback
             print(f"Voice quality analysis error: {e}", file=sys.stderr)
+            print(f"Traceback: {traceback.format_exc()}", file=sys.stderr)
             return {
                 'pitch_variation': 0,
                 'energy_level': 0,
